@@ -58,6 +58,29 @@ BOOL SetServiceStatus(
   LPSERVICE_STATUS      lpServiceStatus
 );
 ```
+
+
+SERVICE_TABLE_ENTRYA structure
+Specifies the ServiceMain function for a service that can run in the calling process. 
+It is used by the StartServiceCtrlDispatcher function.
+
+```
+typedef struct _SERVICE_TABLE_ENTRYA {
+  LPSTR                    lpServiceName;
+  LPSERVICE_MAIN_FUNCTIONA lpServiceProc;
+} SERVICE_TABLE_ENTRYA, *LPSERVICE_TABLE_ENTRYA;
+```
+
+
+StartServiceCtrlDispatcherA function
+Connects the main thread of a service process to the service control manager, which causes the thread to be the service control dispatcher thread for the calling process.
+
+```
+BOOL StartServiceCtrlDispatcherA(
+  const SERVICE_TABLE_ENTRYA *lpServiceStartTable
+);
+```
+
 */
 
 #include <Windows.h>
@@ -79,7 +102,10 @@ void ServiceReportStatus(
     DWORD dwWin32ExitCode,
     DWORD dwWaitHint); //Service Report Status
 void ServiceInit(DWORD dwArgc, LPTSTR *lpArgv);
-
+void ServiceInstall(void);  // Service install function
+void ServiceDelete(void);   // Service delete function
+void ServiceStart(void);    // Service start function
+void ServiceStop(void);     // Service Stop function 
 
 // Main function
 int main(int argc, CHAR *argv[]){
@@ -90,27 +116,32 @@ int main(int argc, CHAR *argv[]){
 
     //Functional logic starts here 
 
-    if( ){
+    if(lstrcmpiA(argv[1], "install") == 0){
         //call service install function 
-
+        ServiceInstall();
         cout << "Installation Success" << endl;
 
-    }else if(  ){
+    }else if(lstrcmpiA(argv[1], "start") == 0){
         //call Service start function
-
+        ServiceStart();
         cout << "ServiceStart Success" << endl;
-    }else if(  ){
+    }else if(lstrcmpiA(argv[1], "stop") == 0){
         //call service stop function
-
+        ServiceStop();
         cout << "ServiceStop Success" << endl;
-    }else if (  ){
+    }else if (lstrcmpiA(argv[1], "delete") == 0){
         //call service delete function 
 
         cout << "ServiceDelete" << endl; 
     }else {
         //STEP-1 Fill the Service Table Entry (2D Array)
+        SERVICE_TABLE_ENTRY DispatchTable[] = {
+            {SERVICE_NAME, (LPSERVICE_MAIN_FUNCTION) ServiceMain},
+            {NULL, NULL}
+        };
 
         //STEP-2 Start Service Control Dispatcher 
+        bStServiceCtrlDispatcher = StartServiceCtrlDispatcher(DispatchTable);
 
         if(bStServiceCtrlDispatcher == FALSE){
             cout << "StartServiceCtrlDispatcher Failed = " << GetLastError() << endl;
@@ -161,4 +192,25 @@ void WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpArgv){
 
     cout << "ServiceMain End" << endl;
 
+}
+
+
+// Service Control Handler
+void WINAPI ServiceControlHandler(DWORD dwControl){
+
+    cout << "ServiceControlHandler" << endl;
+
+    switch(dwControl){
+        case SERVICE_CONTROL_STOP:
+        {
+            //call serviceReportStatus function 
+            ServiceReportStatus(SERVICE_STOPPED, NO_ERROR, 0);
+            cout << "Service stopped" << endl;
+            break;
+        }
+        default:
+            break;
+    }
+
+    cout << "ServiceControlHandler" << endl;
 }

@@ -27,3 +27,26 @@ After these call, it should complete the initialization of Service.
 3. Check the Service Status using `SetServiceStatus` API.  
 4. Then Call `ServiceInit` function.  
 
+
+
+
+## 2. Service Control Handler Function 
+Each service has acontrol handler function.   
+When the service receive control request from SCM, It is called by Control Dispatcher function. (i.e. `StartServiceCtrlDispatcher`)   
+This function executes in the context of the control dispatcher.  
+When the service control handler is called, then the service calls `SetServiceStatus` to report its status to SCM only if handling the control code causes the service status to change.   
+If handling the control code does not cause the service status to chagne, it is not necessary to call `SetServiceStatus`. 
+There is various control code it can accept but here I am covering only which is Important.   
+- SERVICE_CONTROL_STOP  
+    1. When it is accepted then service must stop and status of service would be `SERVICE_STOP_PENDING` or `SERICE_STOPPED`.   
+    2. After the SCM sends this control code, it will not send other control codes.   
+
+- SERVICE_CONTROL_INTERROGATE   
+    1. It sends current status of service to the SCM.   
+    2. This control is not generally useful as the SCM is aware of the current state of the service.   
+
+- SERVICE_CONTROL_CONTINUE  
+    1. It notifies that service is paused and it should start.   
+    2. 
+
+
