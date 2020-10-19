@@ -47,6 +47,11 @@ There is various control code it can accept but here I am covering only which is
 
 - SERVICE_CONTROL_CONTINUE  
     1. It notifies that service is paused and it should start.   
-    2. 
 
+
+
+## NOTE - In part 2, we have covered  
+### 1. int main(int argc, CHAR *argv [])
+### 2. void WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpArgv);
+### 3. void WINAPI ServiceControlHandler(DWORD dwControl);
 
