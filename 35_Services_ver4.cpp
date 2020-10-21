@@ -1,72 +1,47 @@
 /*
-GetModuleFileNameA function
-Retrieves the fully qualified path for the file that contains the specified module.  
-The module must have been loaded by the current process.  
+SERVICE_STATUS_PROCESS structure
+Contains process status information for a service.
 
 ```
-DWORD GetModuleFileNameA(
-  HMODULE hModule,
-  LPSTR   lpFilename,
-  DWORD   nSize
+typedef struct _SERVICE_STATUS_PROCESS {
+  DWORD dwServiceType;
+  DWORD dwCurrentState;
+  DWORD dwControlsAccepted;
+  DWORD dwWin32ExitCode;
+  DWORD dwServiceSpecificExitCode;
+  DWORD dwCheckPoint;
+  DWORD dwWaitHint;
+  DWORD dwProcessId;
+  DWORD dwServiceFlags;
+} SERVICE_STATUS_PROCESS, *LPSERVICE_STATUS_PROCESS;
+```
+
+
+QueryServiceStatusEx function
+Retrieves the current status of the specified service based on the specified information level.
+
+```
+BOOL QueryServiceStatusEx(
+  SC_HANDLE      hService,
+  SC_STATUS_TYPE InfoLevel,
+  LPBYTE         lpBuffer,
+  DWORD          cbBufSize,
+  LPDWORD        pcbBytesNeeded
 );
 ```
 
 
-OpenSCManagerA function
-Establishes a connection to the service control manager on the specified computer 
-and opens the specified service control manager database.
+StartServiceA function
+Starts a service.
 
 ```
-SC_HANDLE OpenSCManagerA(
-  LPCSTR lpMachineName,
-  LPCSTR lpDatabaseName,
-  DWORD  dwDesiredAccess
+BOOL StartServiceA(
+  SC_HANDLE hService,
+  DWORD     dwNumServiceArgs,
+  LPCSTR    *lpServiceArgVectors
 );
 ```
 
-
-CreateServiceA function
-Creates a service object and adds it to the specified service control manager database.
-
-```
-SC_HANDLE CreateServiceA(
-  SC_HANDLE hSCManager,
-  LPCSTR    lpServiceName,
-  LPCSTR    lpDisplayName,
-  DWORD     dwDesiredAccess,
-  DWORD     dwServiceType,
-  DWORD     dwStartType,
-  DWORD     dwErrorControl,
-  LPCSTR    lpBinaryPathName,
-  LPCSTR    lpLoadOrderGroup,
-  LPDWORD   lpdwTagId,
-  LPCSTR    lpDependencies,
-  LPCSTR    lpServiceStartName,
-  LPCSTR    lpPassword
-);
-```
-
-
-OpenServiceA function
-Opens an existing service.  
-
-```
-SC_HANDLE OpenServiceA(
-  SC_HANDLE hSCManager,
-  LPCSTR    lpServiceName,
-  DWORD     dwDesiredAccess
-);
-```
-
-
-DeleteService function
-Marks the specified service for deletion from the service control manager database.
-
-```
-BOOL DeleteService(
-  SC_HANDLE hService
-);
-```
 */
 
 #include <Windows.h>
@@ -389,4 +364,130 @@ void ServiceDelete(void){
     CloseServiceHandle(hScOpenSCManager);
 
     cout << "ServiceDelete End" << endl;
+}
+
+
+void ServiceStart(void){
+    cout << "Insie ServiceStart function" << endl;
+
+    //Loca Variable 
+    BOOL bStartService = FALSE;
+    SERVICE_STATUS_PROCESS SvcStatusProcess;
+    SC_HANDLE hOpenSCManager = NULL;
+    SC_HANDLE hOpenService = NULL;
+    BOOL bQueryServiceStatus = FALSE;
+    DWORD dwBytesNeeded; 
+
+
+    //STEP-1 -> Open Service Control Manager 
+    hOpenSCManager = OpenSCManager(
+        NULL,
+        NULL,
+        SC_MANAGER_ALL_ACCESS);
+
+    if(hOpenSCManager == NULL){
+        cout << "hOpenSCManager Failed = " << GetLastError() << endl;
+    }else {
+        cout << "hOpenSCManager Success" << endl;
+    }
+
+
+    //STEP-2 -> OpenService
+    hOpenService = OpenService(
+        hOpenSCManager,
+        SERVICE_NAME,
+        SC_MANAGER_ALL_ACCESS);
+    if(hOpenService == NULL){
+        cout << "OpenService Failed = " << GetLastError() << endl;
+        CloseServiceHandle(hOpenSCManager);
+    }else {
+        cout << "OpenService Success" << endl; 
+    }
+
+
+    //STEP-3 -> Query about current Service Status 
+    bQueryServiceStatus =  QueryServiceStatusEx(
+        hOpenService,
+        SC_STATUS_PROCESS_INFO,
+        (LPBYTE) &SvcStatusProcess, 
+        sizeof(SERVICE_STATUS_PROCESS),
+        &dwBytesNeeded);
+    if(bQueryServiceStatus == FALSE){
+        cout << "QueryService Faield = " << GetLastError() << endl;
+    }else{
+        cout << "QueryService Success" << endl;
+    }
+
+
+    //STEP-4 -> Check if the Service is running or stopped 
+    if((SvcStatusProcess.dwCurrentState != SERVICE_STOPPED) && (SvcStatusProcess.dwCurrentState != SERVICE_STOP_PENDING)){
+        cout << "service is already running" << endl;
+    }else {
+        cout << "service is already stopped" << endl;
+    }
+
+
+    //STEP-5 -> If Service is stopped then query the service
+    while(SvcStatusProcess.dwCurrentState == SERVICE_STOP_PENDING){
+        bQueryServiceStatus = QueryServiceStatusEx(
+            hOpenService,
+            SC_STATUS_PROCESS_INFO,
+            (LPBYTE) &SvcStatusProcess,
+            sizeof(SERVICE_STATUS_PROCESS),
+            &dwBytesNeeded);
+        if(bQueryServiceStatus == FALSE){
+            cout << "QueryService Faield = " << GetLastError() << endl;
+            CloseServiceHandle(hOpenService);
+            CloseServiceHandle(hOpenSCManager);
+        }else {
+            cout << "QueryService Success" << endl;
+        }
+    }
+
+
+    //STEP-6 -> Start the service. 
+    bStartService = StartService(
+        hOpenService,
+        NULL,
+        NULL);
+    if(bStartService == FALSE){
+        cout << "StartService Faield = " << GetLastError() << endl;
+        CloseServiceHandle(hOpenService);
+        CloseServiceHandle(hOpenSCManager);
+    }else {
+        cout << "StartService Success" << endl;
+    }
+    
+    
+    //STEP-7 -> Query the service again 
+    bQueryServiceStatus = QueryServiceStatusEx(
+        hOpenService,
+        SC_STATUS_PROCESS_INFO,
+        (LPBYTE) &SvcStatusProcess,
+        sizeof(SERVICE_STATUS_PROCESS),
+        &dwBytesNeeded);
+    if(bQueryServiceStatus == FALSE){
+        cout << "QueryService Faield = " << GetLastError() << endl;
+        CloseServiceHandle(hOpenService);
+        CloseServiceHandle(hOpenSCManager);
+    }else {
+        cout << "QueryService Success" << endl;
+    }
+
+
+    //STEP-8 -> Check if the service is running or not 
+    if(SvcStatusProcess.dwCurrentState == SERVICE_RUNNING){
+        cout << "Service Started Running..." << endl; 
+    }else {
+        cout << "Service Running Faield = " << GetLastError() << endl;
+        CloseServiceHandle(hOpenService);
+        CloseServiceHandle(hOpenSCManager);
+    }
+
+
+    //STEP-9 -> Close the service handle for OpenSCManager & OpenService
+    CloseServiceHandle(hOpenService);
+    CloseServiceHandle(hOpenSCManager);
+
+    cout << "ServiceStart end" << endl;
 }
