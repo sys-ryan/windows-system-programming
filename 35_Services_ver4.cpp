@@ -42,6 +42,17 @@ BOOL StartServiceA(
 );
 ```
 
+
+ControlService function
+Sends a control code to a service.
+
+```
+BOOL ControlService(
+  SC_HANDLE        hService,
+  DWORD            dwControl,
+  LPSERVICE_STATUS lpServiceStatus
+);
+```
 */
 
 #include <Windows.h>
@@ -490,4 +501,110 @@ void ServiceStart(void){
     CloseServiceHandle(hOpenSCManager);
 
     cout << "ServiceStart end" << endl;
+}
+
+
+void ServiceStop(void){
+    cout << "Inside Service Stop" << endl;
+
+    //Local variable
+    SERVICE_STATUS_PROCESS SvcStatusProcess;
+    SC_HANDLE hScOpenSCManager = NULL;
+    SC_HANDLE hScOpenService = NULL;
+    BOOL bQueryServiceStatus = TRUE;
+    BOOL bControlService = TRUE;
+    DWORD dwBytesNeeded;
+
+    
+    //STEP-1 -> Open Service Control Manager
+    hScOpenSCManager = OpenSCManager(
+        NULL,
+        NULL,
+        SC_MANAGER_ALL_ACCESS);
+    
+    if(NULL == hScOpenSCManager){
+        cout << "OpenSCManager Failed = " << GetLastError() << endl;
+    }else {
+        cout << "OpenSCManager Success" << endl;
+    }
+
+
+    //STEP-2 -> Open your Service
+    hScOpenService = OpenServie(
+        hScOpenSCManager, 
+        SERVICE_NAME,
+        SC_MANAGER_ALL_ACCESS);
+    
+    if(hScOpenService == NULL){
+        cout << "OpenService Faield = " << GetLastError() << endl;
+    }else{
+        cout << "OpenService Success" << endl;
+    }
+
+
+    //STEP-3 -> QueryServiceStatus 
+    bQueryServiceStatus = QueryServiceStatusEx(
+        hScOpenService,
+        SC_STATUS_PROCESS_INFO,
+        (LPBYTE) &SvcStatusProcess,
+        sizeof(SERVICE_STATUS_PROCESS),
+        &dwBytesNeeded);
+    
+    if(bQueryServiceStatus == FALSE){
+        cout << "QueryService Failed = " << GetLastError() << endl;
+        CloseServiceHandle(hScOpenService);
+        CloseServiceHandle(hScOpenSCManager);
+    }else {
+        cout << "QueryService Success" << endl;
+    }
+
+
+    //STEP-4 -> send a stop code to the Service Control Manager 
+    bControlService = ControlService(
+        hScOpenService, 
+        SERVICE_CONTROL_STOP,
+        (LPSERVICE_STATUS)&SvcStatusProcess);
+    if(bControlService == TRUE){
+        cout << "Control Service Success" << endl;
+    }else {
+        cout < "Control Service Failed = " << GetLastError() << endl;
+        CloseServiceHandle(hScOpenService);
+        CloseServiceHandle(hScOpenSCManager);
+    }
+
+
+    //STEP-5 -> wiat for service to stop 
+    while(SvcStatusProcess.dwCurrentState != SERVICE_STOPPED){
+        
+
+        //STEP-6 -> Inside while loop, query the service 
+        bQueryServiceStatus = QueryServiceStatusEx(
+            hScOpenService,
+            SC_STATUS_PROCESS_INFO,
+            (LPBYTE)&SvcStatusProcess,
+            sizeof(SERVICE_STATUS_PROCESS),
+            &dwBytesNeeded);
+        
+        if(bQueryServiceStatus == FALSE){
+            cout << "QueryService Failed = " << GetLastError() << endl;
+            CloseServiceHandle(hScOpenService);
+            CloseServiceHandle(hScOpenSCManager);
+        }else {
+            cout << "QueryService Success" << endl;
+        }
+
+
+        //STEP-7 -> Inside while loop, check the current state of service
+        if(SvcStatusProcess.dwCurrentState == SERVICE_STOPPED){
+            cout << "Service Stopped Successfully" << endl;
+            break;  //comming out of while loop
+        }else {
+            cout << "Service Stop Failed = " << GetLastError() << endl;
+        }
+    }
+
+    //STEP-8 -> Close the handle for Open SCM & Open Service 
+    CloseServiceHandle(hScOpenService);
+    CloseServiceHandle(hScOpenSCManager);
+    cout << "Service Stop" << endl;
 }
